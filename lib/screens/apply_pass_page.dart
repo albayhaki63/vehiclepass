@@ -174,13 +174,25 @@ class _ApplyPassPageState extends State<ApplyPassPage> {
 
     final user = FirebaseAuth.instance.currentUser!;
 
+    // 1. Calculate Expiry Date
+    DateTime expiryDate = startDate!;
+    if (duration == '1 Month') {
+      expiryDate = startDate!.add(const Duration(days: 30));
+    } else if (duration == '1 Semester') {
+      expiryDate = startDate!.add(const Duration(days: 180)); // Approx 6 months
+    } else if (duration == '1 Year') {
+      expiryDate = startDate!.add(const Duration(days: 365));
+    }
+
     await FirebaseFirestore.instance
         .collection('vehicle_passes')
         .add({
-      'vehicleNo': vehicleNoCtrl.text.trim(),
+      // 2. Changed key from 'vehicleNo' to 'plateNumber' to match HomePage
+      'plateNumber': vehicleNoCtrl.text.trim(), 
       'vehicleType': vehicleType,
       'duration': duration,
       'startDate': startDate,
+      'expiryDate': expiryDate, // 3. Added Expiry Date to Database
       'purpose': purposeCtrl.text.trim(),
       'userEmail': user.email,
       'userId': user.uid,
@@ -190,17 +202,16 @@ class _ApplyPassPageState extends State<ApplyPassPage> {
 
     setState(() => isLoading = false);
 
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Application submitted')),
-    );
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application submitted')),
+      );
+    }
   }
 }
 
-//
 // 🔹 UI HELPER WIDGETS
-//
 class _FormCard extends StatelessWidget {
   final Widget child;
   const _FormCard({required this.child});

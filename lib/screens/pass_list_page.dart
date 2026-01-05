@@ -25,12 +25,12 @@ class PassListPage extends StatelessWidget {
             .where('userId', isEqualTo: user.uid)
             .snapshots(),
         builder: (context, snapshot) {
-          // 🔹 LOADING STATE
+          // 隼 LOADING STATE
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // 🔹 ERROR STATE
+          // 隼 ERROR STATE
           if (snapshot.hasError) {
             return const Center(
               child: Text('Something went wrong'),
@@ -39,7 +39,7 @@ class PassListPage extends StatelessWidget {
 
           final docs = snapshot.data?.docs ?? [];
 
-          // 🔹 EMPTY STATE
+          // 隼 EMPTY STATE
           if (docs.isEmpty) {
             return Center(
               child: Column(
@@ -58,7 +58,7 @@ class PassListPage extends StatelessWidget {
             );
           }
 
-          // 🔹 DATA LIST
+          // 隼 DATA LIST
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: docs.length,
@@ -66,8 +66,11 @@ class PassListPage extends StatelessWidget {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
 
+              // 🔹 FIX: Retrieve 'plateNumber' preferentially, fallback to 'vehicleNo'
+              String displayPlate = data['plateNumber'] ?? data['vehicleNo'] ?? '-';
+
               return _ApplicationCard(
-                vehicleNo: data['vehicleNo'] ?? '-',
+                vehicleNo: displayPlate,
                 vehicleType: data['vehicleType'] ?? '-',
                 duration: data['duration'] ?? '-',
                 status: data['status'] ?? 'Pending',
