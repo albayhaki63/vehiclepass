@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../auth/login_page.dart';
 import 'apply_pass_page.dart';
 import 'pass_list_page.dart';
+import 'notifications_page.dart';
+import 'guidelines_page.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -24,285 +26,117 @@ class HomePage extends StatelessWidget {
           .doc(user.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        String username = 'User';
-
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data =
-              snapshot.data!.data() as Map<String, dynamic>;
-          username = data['username'] ?? username;
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
+
+        final data =
+            snapshot.data!.data() as Map<String, dynamic>;
+        final username = data['username'] ?? 'User';
+        final email = data['email'] ?? user.email ?? '';
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Home')),
+          appBar: AppBar(title: const Text('VehiclePass')),
           drawer: _AppDrawer(
             username: username,
-            email: user.email ?? '',
+            email: email,
           ),
 
-          body: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // 👋 WELCOME
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: Theme.of(context)
-                            .primaryColor
-                            .withOpacity(0.15),
-                        child: Icon(
-                          Icons.person,
-                          color:
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 👋 WELCOME CARD
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor:
                               Theme.of(context).primaryColor,
+                          child: const Icon(Icons.person,
+                              color: Colors.white),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Welcome 👋',
-                            style:
-                                TextStyle(color: Colors.grey),
-                          ),
-                          Text(
-                            username,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Welcome 👋',
+                              style:
+                                  TextStyle(color: Colors.grey),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            Text(
+                              username,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-              // 🪪 ACTIVE VEHICLE PASS
-              const Text(
-                'Active Vehicle Pass',
-                style:
-                    TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              _ActiveVehiclePass(userId: user.uid),
-
-              const SizedBox(height: 16),
-
-              // ⏰ EXPIRY REMINDER
-              _ExpiryReminder(userId: user.uid),
-
-              const SizedBox(height: 24),
-
-              // 💡 TIPS
-              const _TipsCard(),
-
-              const SizedBox(height: 30),
-
-              // 🕒 RECENT APPLICATION
-              const Text(
-                'Recent Application',
-                style:
-                    TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              _RecentApplication(userId: user.uid),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ================= ACTIVE VEHICLE PASS =================
-class _ActiveVehiclePass extends StatelessWidget {
-  final String userId;
-
-  const _ActiveVehiclePass({required this.userId});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('vehicle_passes')
-          .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'Approved')
-          .limit(1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData ||
-            snapshot.data!.docs.isEmpty) {
-          return Card(
-            child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('No Active Vehicle Pass'),
-              subtitle:
-                  const Text('You have no approved pass'),
-            ),
-          );
-        }
-
-        final data =
-            snapshot.data!.docs.first.data()
-                as Map<String, dynamic>;
-
-        return Card(
-          child: ListTile(
-            leading: const Icon(
-              Icons.verified,
-              color: Colors.green,
-            ),
-            title: Text(
-              data['plateNumber'] ?? '-',
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: const Text('Approved & Active'),
-            trailing: const Chip(
-              label: Text(
-                'ACTIVE',
-                style: TextStyle(color: Colors.white),
-              ),
-              backgroundColor: Colors.green,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ================= EXPIRY REMINDER =================
-class _ExpiryReminder extends StatelessWidget {
-  final String userId;
-
-  const _ExpiryReminder({required this.userId});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('vehicle_passes')
-          .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'Approved')
-          .limit(1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData ||
-            snapshot.data!.docs.isEmpty) {
-          return const SizedBox();
-        }
-
-        final data =
-            snapshot.data!.docs.first.data()
-                as Map<String, dynamic>;
-
-        if (data['expiryDate'] == null) {
-          return const SizedBox();
-        }
-
-        final expiry =
-            (data['expiryDate'] as Timestamp).toDate();
-        final daysLeft =
-            expiry.difference(DateTime.now()).inDays;
-
-        if (daysLeft > 7) return const SizedBox();
-
-        return Card(
-          color: Colors.red.withOpacity(0.1),
-          child: ListTile(
-            leading:
-                const Icon(Icons.warning, color: Colors.red),
-            title: const Text(
-              'Pass Expiring Soon',
-              style:
-                  TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              'Your pass will expire in $daysLeft day(s)',
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ================= TIPS =================
-class _TipsCard extends StatelessWidget {
-  const _TipsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).primaryColor.withOpacity(0.08),
-      child: const ListTile(
-        leading: Icon(Icons.lightbulb_outline),
-        title: Text(
-          'Tip',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          'Apply at least 1 day before entering campus and ensure your plate number is correct.',
-        ),
-      ),
-    );
-  }
-}
-
-// ================= RECENT APPLICATION =================
-class _RecentApplication extends StatelessWidget {
-  final String userId;
-
-  const _RecentApplication({required this.userId});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('vehicle_passes')
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData ||
-            snapshot.data!.docs.isEmpty) {
-          return const Text(
-            'No application yet.',
-            style: TextStyle(color: Colors.grey),
-          );
-        }
-
-        final data =
-            snapshot.data!.docs.first.data()
-                as Map<String, dynamic>;
-
-        return Card(
-          child: ListTile(
-            leading:
-                const Icon(Icons.directions_car),
-            title: Text(data['plateNumber'] ?? '-'),
-            subtitle:
-                Text('Status: ${data['status']}'),
-            trailing:
-                const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PassListPage(),
+                // 🚗 ACTIVE PASS (DEMO / STATIC)
+                const Text(
+                  'Active Vehicle Pass',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold),
                 ),
-              );
-            },
+                const SizedBox(height: 8),
+
+                Card(
+                  color: Colors.green.shade50,
+                  child: ListTile(
+                    leading: const Icon(Icons.directions_car,
+                        color: Colors.green),
+                    title: const Text('Car • ABC1234'),
+                    subtitle:
+                        const Text('Valid until: 30 Jun 2026'),
+                    trailing: Chip(
+                      label: const Text('ACTIVE'),
+                      backgroundColor:
+                          Colors.green.shade200,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 💡 TIPS
+                const Text(
+                  'Tips & Reminder',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+
+                Card(
+                  color: Colors.orange.shade50,
+                  child: const ListTile(
+                    leading: Icon(Icons.lightbulb,
+                        color: Colors.orange),
+                    title: Text('Renew before expiry'),
+                    subtitle: Text(
+                        'Renew at least 7 days before pass expires'),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -327,17 +161,14 @@ class _AppDrawer extends StatelessWidget {
         children: [
           UserAccountsDrawerHeader(
             decoration:
-                const BoxDecoration(color: Color(0xFFFF9800)),
-            currentAccountPicture:
-                const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.person,
-                color: Color(0xFFFF9800),
-              ),
-            ),
+                const BoxDecoration(color: Colors.orange),
             accountName: Text(username),
             accountEmail: Text(email),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person,
+                  color: Colors.orange),
+            ),
           ),
 
           ListTile(
@@ -345,6 +176,7 @@ class _AppDrawer extends StatelessWidget {
             title: const Text('Home'),
             onTap: () => Navigator.pop(context),
           ),
+
           ListTile(
             leading:
                 const Icon(Icons.directions_car),
@@ -359,6 +191,7 @@ class _AppDrawer extends StatelessWidget {
               );
             },
           ),
+
           ListTile(
             leading:
                 const Icon(Icons.receipt_long),
@@ -373,6 +206,42 @@ class _AppDrawer extends StatelessWidget {
               );
             },
           ),
+
+          const Divider(),
+
+          ListTile(
+            leading:
+                const Icon(Icons.notifications),
+            title: const Text('Notifications'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const NotificationsPage(),
+                ),
+              );
+            },
+          ),
+
+          ListTile(
+            leading:
+                const Icon(Icons.menu_book),
+            title:
+                const Text('Guidelines / FAQ'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const GuidelinesPage(),
+                ),
+              );
+            },
+          ),
+
+          const Divider(),
+
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),
@@ -380,33 +249,51 @@ class _AppDrawer extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const ProfilePage(),
+                  builder: (_) =>
+                      const ProfilePage(),
                 ),
               );
             },
           ),
 
           const Spacer(),
-          const Divider(),
 
           ListTile(
-            leading:
-                const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.red),
-            ),
-            onTap: () async {
-              Navigator.pop(context);
+            leading: const Icon(Icons.logout,
+                color: Colors.red),
+            title: const Text('Logout'),
+            onTap: () => _confirmLogout(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm Logout'),
+        content:
+            const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red),
+            onPressed: () async {
               await FirebaseAuth.instance.signOut();
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => LoginPage(),
-                ),
+                    builder: (_) => LoginPage()),
                 (_) => false,
               );
             },
+            child: const Text('Logout'),
           ),
         ],
       ),
