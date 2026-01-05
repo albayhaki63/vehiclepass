@@ -6,6 +6,8 @@ import '../auth/login_page.dart';
 import 'apply_pass_page.dart';
 import 'pass_list_page.dart';
 import 'profile_page.dart';
+import 'notifications_page.dart';
+import 'guidelines_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -129,11 +131,9 @@ class _HomePageState extends State<HomePage> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          // 🔹 FIX: Use cardColor instead of Colors.white
                           color: Theme.of(context).cardColor, 
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            // 🔹 FIX: Use dividerColor for border
                             color: Theme.of(context).dividerColor, 
                           ),
                         ),
@@ -141,13 +141,10 @@ class _HomePageState extends State<HomePage> {
                           child: DropdownButton<String>(
                             value: _selectedPassId,
                             isExpanded: true,
-                            // 🔹 FIX: Ensure dropdown background matches theme
                             dropdownColor: Theme.of(context).cardColor,
-                            // 🔹 FIX: Ensure text style matches theme
                             style: Theme.of(context).textTheme.bodyLarge, 
                             icon: Icon(
                               Icons.arrow_drop_down,
-                              // 🔹 FIX: Ensure icon is visible in dark mode
                               color: Theme.of(context).iconTheme.color,
                             ),
                             items: docs.map((doc) {
@@ -312,7 +309,6 @@ class _TipsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      // 🔹 FIX: Dynamic color for dark mode support
       color: Theme.of(context).brightness == Brightness.dark
           ? Theme.of(context).cardColor
           : Theme.of(context).primaryColor.withOpacity(0.08),
@@ -389,7 +385,8 @@ class _AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      child: Column(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(color: Color(0xFFFF9800)),
@@ -403,15 +400,20 @@ class _AppDrawer extends StatelessWidget {
             accountName: Text(username),
             accountEmail: Text(email),
           ),
+          
+          // 🏠 Home
           ListTile(
             leading: const Icon(Icons.home),
             title: const Text('Home'),
             onTap: () => Navigator.pop(context),
           ),
+
+          // 🚗 Apply Vehicle Pass
           ListTile(
             leading: const Icon(Icons.directions_car),
             title: const Text('Apply Vehicle Pass'),
             onTap: () {
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -420,10 +422,13 @@ class _AppDrawer extends StatelessWidget {
               );
             },
           ),
+
+          // 📄 My Applications
           ListTile(
             leading: const Icon(Icons.receipt_long),
             title: const Text('My Applications'),
             onTap: () {
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -432,10 +437,47 @@ class _AppDrawer extends StatelessWidget {
               );
             },
           ),
+
+          const Divider(),
+
+          // 🔔 Notifications
+          ListTile(
+            leading: const Icon(Icons.notifications),
+            title: const Text('Notifications'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationsPage(),
+                ),
+              );
+            },
+          ),
+
+          // 📘 Guidelines / FAQ
+          ListTile(
+            leading: const Icon(Icons.menu_book),
+            title: const Text('Guidelines / FAQ'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const GuidelinesPage(),
+                ),
+              );
+            },
+          ),
+
+          const Divider(),
+
+          // 👤 Profile
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),
             onTap: () {
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -444,8 +486,8 @@ class _AppDrawer extends StatelessWidget {
               );
             },
           ),
-          const Spacer(),
-          const Divider(),
+
+          // 🚪 Logout
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text(
@@ -455,13 +497,15 @@ class _AppDrawer extends StatelessWidget {
             onTap: () async {
               Navigator.pop(context);
               await FirebaseAuth.instance.signOut();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => LoginPage(),
-                ),
-                (_) => false,
-              );
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LoginPage(),
+                  ),
+                  (_) => false,
+                );
+              }
             },
           ),
         ],
