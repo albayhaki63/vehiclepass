@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "565286882832",
+    "project_id": "vehiclepass-e5830",
+    "storage_bucket": "vehiclepass-e5830.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:565286882832:android:9d31f702b71c390c5b0495",
+        "android_client_info": {
+          "package_name": "com.example.vehiclepass"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFFHnnhQ71oWliB2hN41XhM-O2yHNF3ZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
