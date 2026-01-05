@@ -125,9 +125,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
           itemCount: docs.length,
           itemBuilder: (context, i) {
             final data = docs[i].data() as Map<String, dynamic>;
+            
+            // 🔹 FIX: Retrieve 'plateNumber' preferentially, fallback to 'vehicleNo'
+            String displayPlate = data['plateNumber'] ?? data['vehicleNo'] ?? '-';
+
             return _ApplicationCard(
               id: docs[i].id,
-              vehicleNo: data['vehicleNo'] ?? '-',
+              vehicleNo: displayPlate, 
               vehicleType: data['vehicleType'] ?? '-',
               email: data['userEmail'] ?? '-',
               date: data['createdAt'],

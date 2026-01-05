@@ -7,8 +7,15 @@ import 'apply_pass_page.dart';
 import 'pass_list_page.dart';
 import 'profile_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String? _selectedPassId;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +67,7 @@ class HomePage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Welcome 窓',
+                            'Welcome 👋',
                             style: TextStyle(color: Colors.grey),
                           ),
                           Text(
@@ -79,13 +86,98 @@ class HomePage extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // ｪｪ ACTIVE VEHICLE PASS
+              // ｪｪ MY VEHICLES (Dropdown + Details)
               const Text(
-                'Active Vehicle Pass',
+                'My Vehicles',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _ActiveVehiclePass(userId: user.uid),
+              
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('vehicle_passes')
+                    .where('userId', isEqualTo: user.uid)
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, vehicleSnap) {
+                  if (vehicleSnap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final docs = vehicleSnap.data?.docs ?? [];
+
+                  if (docs.isEmpty) {
+                    return const Card(
+                      child: ListTile(
+                        leading: Icon(Icons.info_outline),
+                        title: Text('No Vehicles Found'),
+                        subtitle: Text('Apply for a pass to see it here'),
+                      ),
+                    );
+                  }
+
+                  if (_selectedPassId == null || !docs.any((d) => d.id == _selectedPassId)) {
+                    _selectedPassId = docs.first.id;
+                  }
+
+                  final selectedDoc = docs.firstWhere((d) => d.id == _selectedPassId);
+                  final selectedData = selectedDoc.data() as Map<String, dynamic>;
+
+                  return Column(
+                    children: [
+                      // 1. Dropdown List (Dark Mode Fixed)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          // 🔹 FIX: Use cardColor instead of Colors.white
+                          color: Theme.of(context).cardColor, 
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            // 🔹 FIX: Use dividerColor for border
+                            color: Theme.of(context).dividerColor, 
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedPassId,
+                            isExpanded: true,
+                            // 🔹 FIX: Ensure dropdown background matches theme
+                            dropdownColor: Theme.of(context).cardColor,
+                            // 🔹 FIX: Ensure text style matches theme
+                            style: Theme.of(context).textTheme.bodyLarge, 
+                            icon: Icon(
+                              Icons.arrow_drop_down,
+                              // 🔹 FIX: Ensure icon is visible in dark mode
+                              color: Theme.of(context).iconTheme.color,
+                            ),
+                            items: docs.map((doc) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              final plate = data['plateNumber'] ?? data['vehicleNo'] ?? 'Unknown';
+                              return DropdownMenuItem(
+                                value: doc.id,
+                                child: Text(
+                                  plate,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedPassId = val;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 12),
+
+                      // 2. Selected Vehicle Details Card
+                      _buildSelectedVehicleCard(selectedData),
+                    ],
+                  );
+                },
+              ),
 
               const SizedBox(height: 16),
 
@@ -112,67 +204,52 @@ class HomePage extends StatelessWidget {
       },
     );
   }
-}
 
-// ================= ACTIVE VEHICLE PASS =================
-class _ActiveVehiclePass extends StatelessWidget {
-  final String userId;
+  Widget _buildSelectedVehicleCard(Map<String, dynamic> data) {
+    String expiryString = 'N/A';
+    if (data['expiryDate'] != null) {
+      final DateTime expiry = (data['expiryDate'] as Timestamp).toDate();
+      expiryString = "${expiry.day.toString().padLeft(2, '0')}/${expiry.month.toString().padLeft(2, '0')}/${expiry.year}";
+    }
 
-  const _ActiveVehiclePass({required this.userId});
+    final status = data['status'] ?? 'Pending';
+    final plate = data['plateNumber'] ?? data['vehicleNo'] ?? 'Unknown Plate';
 
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('vehicle_passes')
-          .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'Approved')
-          .limit(1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Card(
-            child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('No Active Vehicle Pass'),
-              subtitle: const Text('You have no approved pass'),
-            ),
-          );
-        }
+    Color statusColor;
+    if (status == 'Approved') {
+      statusColor = Colors.green;
+    } else if (status == 'Rejected') {
+      statusColor = Colors.red;
+    } else {
+      statusColor = Colors.orange;
+    }
 
-        final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-
-        // 1. Get and Format Expiry Date
-        String expiryString = 'N/A';
-        if (data['expiryDate'] != null) {
-          final DateTime expiry = (data['expiryDate'] as Timestamp).toDate();
-          // Format: DD/MM/YYYY
-          expiryString = "${expiry.day.toString().padLeft(2, '0')}/${expiry.month.toString().padLeft(2, '0')}/${expiry.year}";
-        }
-
-        return Card(
-          child: ListTile(
-            leading: const Icon(
-              Icons.verified,
-              color: Colors.green,
-            ),
-            // 2. Display the correct Plate Number
-            title: Text(
-              data['plateNumber'] ?? 'Unknown Plate',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            // 3. Display the Expiry Date
-            subtitle: Text('Active • Expires: $expiryString'),
-            trailing: const Chip(
-              label: Text(
-                'ACTIVE',
-                style: TextStyle(color: Colors.white),
-              ),
-              backgroundColor: Colors.green,
-            ),
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          Icons.directions_car,
+          color: statusColor,
+          size: 32,
+        ),
+        title: Text(
+          plate,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Status: $status'),
+            Text('Expires: $expiryString'),
+          ],
+        ),
+        trailing: Chip(
+          label: Text(
+            status.toUpperCase(),
+            style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
-        );
-      },
+          backgroundColor: statusColor,
+        ),
+      ),
     );
   }
 }
@@ -206,7 +283,6 @@ class _ExpiryReminder extends StatelessWidget {
         final expiry = (data['expiryDate'] as Timestamp).toDate();
         final daysLeft = expiry.difference(DateTime.now()).inDays;
 
-        // Only show if expiring in 7 days or less, but not if already expired significantly
         if (daysLeft > 7 || daysLeft < -1) return const SizedBox();
 
         String msg = daysLeft < 0 
@@ -236,7 +312,10 @@ class _TipsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Theme.of(context).primaryColor.withOpacity(0.08),
+      // 🔹 FIX: Dynamic color for dark mode support
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).cardColor
+          : Theme.of(context).primaryColor.withOpacity(0.08),
       child: const ListTile(
         leading: Icon(Icons.lightbulb_outline),
         title: Text(
@@ -279,7 +358,6 @@ class _RecentApplication extends StatelessWidget {
         return Card(
           child: ListTile(
             leading: const Icon(Icons.directions_car),
-            // Ensure we read 'plateNumber' here as well to match the new DB structure
             title: Text(data['plateNumber'] ?? data['vehicleNo'] ?? '-'),
             subtitle: Text('Status: ${data['status']}'),
             trailing: const Icon(Icons.chevron_right),
