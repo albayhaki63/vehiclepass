@@ -382,6 +382,51 @@ class _AppDrawer extends StatelessWidget {
     required this.email,
   });
 
+  // 🔹 Helper function to show Logout Confirmation Dialog
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              // 1. Close the dialog
+              Navigator.pop(ctx); 
+              
+              // 2. Perform sign out
+              await FirebaseAuth.instance.signOut();
+              
+              // 3. Navigate to Login Page (removes Drawer, Dialog, and Home)
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LoginPage(),
+                  ),
+                  (_) => false,
+                );
+              }
+            },
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -494,18 +539,10 @@ class _AppDrawer extends StatelessWidget {
               'Logout',
               style: TextStyle(color: Colors.red),
             ),
-            onTap: () async {
-              Navigator.pop(context);
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LoginPage(),
-                  ),
-                  (_) => false,
-                );
-              }
+            onTap: () {
+              // ⚠️ FIX: Removed Navigator.pop(context) from here.
+              // We keep the drawer open so 'context' stays valid for the Dialog.
+              _showLogoutDialog(context); 
             },
           ),
         ],
