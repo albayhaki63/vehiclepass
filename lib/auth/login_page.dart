@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -6,100 +7,158 @@ import '../admin/admin_home_page.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 
-class LoginPage extends StatelessWidget {
-  LoginPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
+  bool obscurePassword = true;
 
-  // 🔑 EMAIL ADMIN KHAS
   final List<String> adminEmails = [
     'admin@vehiclepass.com',
   ];
 
+  // ✨ QUOTES
+  final List<String> quotes = [
+    "Secure access starts with you.",
+    "Smart campus begins with smart security.",
+    "Your journey starts with a single login.",
+    "Technology protects when used wisely.",
+  ];
+
+  late String randomQuote;
+
+  @override
+  void initState() {
+    super.initState();
+    randomQuote = quotes[Random().nextInt(quotes.length)];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
-      // 🔹 FIX: Wrapped in LayoutBuilder > SingleChildScrollView > ConstrainedBox > IntrinsicHeight
-      // This pattern fixes the overflow issue while keeping the Spacer() working correctly.
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.symmetric(horizontal: 26),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 50),
 
-                        // 🔰 LOGO + APP NAME
+                        // 🚗 LOGO
                         Center(
                           child: Column(
                             children: [
-                              CircleAvatar(
-                                radius: 42,
-                                backgroundColor: Theme.of(context)
-                                    .primaryColor
-                                    .withOpacity(0.15),
-                                child: const Icon(
-                                  Icons.directions_car_rounded,
-                                  size: 42,
-                                  color: Color(0xFFFFB703),
-                                ),
+                              Icon(
+                                Icons.directions_car_rounded,
+                                size: 60,
+                                color: scheme.primary,
                               ),
                               const SizedBox(height: 14),
-                              const Text(
+                              Text(
                                 'VehiclePass',
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: theme.textTheme.headlineMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 6),
-                              const Text(
-                                'Manage your campus vehicle access',
-                                style: TextStyle(color: Colors.grey),
+                              Text(
+                                'Campus Vehicle Access System',
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
                               ),
                             ],
                           ),
                         ),
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 25),
 
-                        const Text(
-                          'Sign In',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                        // 💬 QUOTE
+                        Center(
+                          child: Text(
+                            '“$randomQuote”',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: scheme.primary,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+
+                        const SizedBox(height: 40),
+
+                        Text(
+                          'Welcome Back 👋',
+                          style: theme.textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Sign in to continue',
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+
+                        const SizedBox(height: 30),
 
                         // 📧 EMAIL
                         TextField(
                           controller: emailCtrl,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Email',
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            filled: true,
+                            fillColor: scheme.surfaceVariant,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+
+                        const SizedBox(height: 18),
 
                         // 🔐 PASSWORD
                         TextField(
                           controller: passCtrl,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: obscurePassword,
+                          decoration: InputDecoration(
                             labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  obscurePassword = !obscurePassword;
+                                });
+                              },
+                            ),
+                            filled: true,
+                            fillColor: scheme.surfaceVariant,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
 
-                        // 🔁 FORGOT PASSWORD
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -115,14 +174,27 @@ class LoginPage extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
 
                         // 🔘 LOGIN BUTTON
                         SizedBox(
                           width: double.infinity,
-                          height: 48,
+                          height: 52,
                           child: ElevatedButton(
-                            child: const Text('Login'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: scheme.primary,
+                              foregroundColor: scheme.onPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              'Login',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             onPressed: () async {
                               try {
                                 final cred = await FirebaseAuth.instance
@@ -134,12 +206,12 @@ class LoginPage extends StatelessWidget {
                                 final email =
                                     cred.user!.email!.toLowerCase();
 
-                                // 🚦 ADMIN vs USER
                                 if (adminEmails.contains(email)) {
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const AdminHomePage(),
+                                      builder: (_) =>
+                                          const AdminHomePage(),
                                     ),
                                   );
                                 } else {
@@ -152,9 +224,14 @@ class LoginPage extends StatelessWidget {
                                 }
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('Invalid email or password'),
+                                  SnackBar(
+                                    backgroundColor: scheme.error,
+                                    content: Text(
+                                      'Invalid email or password',
+                                      style: TextStyle(
+                                        color: scheme.onError,
+                                      ),
+                                    ),
                                   ),
                                 );
                               }
@@ -168,20 +245,22 @@ class LoginPage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text("Don't have an account? "),
+                            const Text("Don't have account? "),
                             TextButton(
-                              child: const Text('Sign Up'),
+                              child: const Text('Create one'),
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => SignUpPage(),
+                                    builder: (_) => const SignUpPage(),
                                   ),
                                 );
                               },
                             ),
                           ],
                         ),
+
+                        const SizedBox(height: 18),
                       ],
                     ),
                   ),

@@ -36,17 +36,16 @@ class _HomePageState extends State<HomePage> {
           .snapshots(),
       builder: (context, snapshot) {
         String username = 'User';
-        String? photoUrl; // 🔹 Variable for photo
+        String? photoUrl;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           username = data['username'] ?? username;
-          photoUrl = data['photoUrl']; // 🔹 Fetch photoUrl
+          photoUrl = data['photoUrl'];
         }
 
         return Scaffold(
           appBar: AppBar(title: const Text('Home')),
-          // 🔹 Pass photoUrl to Drawer
           drawer: _AppDrawer(
             username: username,
             email: user.email ?? '',
@@ -61,7 +60,6 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.all(18),
                   child: Row(
                     children: [
-                      // 🔹 Display Profile Image here
                       CircleAvatar(
                         radius: 26,
                         backgroundColor: Theme.of(context).primaryColor.withOpacity(0.15),
@@ -93,9 +91,7 @@ class _HomePageState extends State<HomePage> {
               const Text('My Vehicles', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               
-              // ... (Keep existing Vehicle StreamBuilder code here) ...
-              // For brevity, I'm hiding the vehicle list code since it hasn't changed.
-              // Just ensure you keep the existing StreamBuilder<QuerySnapshot> code here.
+              // 🚗 VEHICLE DROPDOWN & CARD
                StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('vehicle_passes')
@@ -159,8 +155,11 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 24),
               const _TipsCard(),
               const SizedBox(height: 30),
+              
+              // 🕒 RECENT APPLICATION HEADER (View All Button Removed)
               const Text('Recent Application', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
+
               _RecentApplication(userId: user.uid),
             ],
           ),
@@ -169,7 +168,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ... (Keep existing _buildSelectedVehicleCard, _ExpiryReminder, _TipsCard, _RecentApplication) ...
     Widget _buildSelectedVehicleCard(Map<String, dynamic> data) {
     String expiryString = 'N/A';
     if (data['expiryDate'] != null) {
@@ -194,13 +192,12 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ... (Keep helper classes: _ExpiryReminder, _TipsCard, _RecentApplication from previous codes) ...
 class _ExpiryReminder extends StatelessWidget {
   final String userId;
   const _ExpiryReminder({required this.userId});
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(); // (Placeholder to save space, assuming it's same as before)
+    return const SizedBox(); 
   }
 }
 
@@ -208,24 +205,90 @@ class _TipsCard extends StatelessWidget {
   const _TipsCard();
   @override
   Widget build(BuildContext context) {
-    return const Card(child: ListTile(leading: Icon(Icons.lightbulb_outline), title: Text('Tip'), subtitle: Text('Apply early!')));
+    return const Card(child: ListTile(leading: Icon(Icons.lightbulb_outline, color: Colors.amber), title: Text('Tip'), subtitle: Text('Apply early to avoid processing delays!')));
   }
 }
 
+// 🕒 RECENT APPLICATION WIDGET
 class _RecentApplication extends StatelessWidget {
   final String userId;
   const _RecentApplication({required this.userId});
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(); // (Placeholder)
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('vehicle_passes')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(1) // Get only the latest one
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: LinearProgressIndicator());
+        }
+        
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Card(
+            color: Colors.grey[100],
+            child: const ListTile(
+              leading: Icon(Icons.history, color: Colors.grey),
+              title: Text('No applications yet'),
+              subtitle: Text('Your recent application will appear here'),
+            ),
+          );
+        }
+
+        final doc = snapshot.data!.docs.first;
+        final data = doc.data() as Map<String, dynamic>;
+        
+        final plate = data['plateNumber'] ?? data['vehicleNo'] ?? 'Unknown';
+        final status = data['status'] ?? 'Pending';
+        final vehicleType = data['vehicleType'] ?? 'Car';
+        final timestamp = data['createdAt'] as Timestamp?;
+        final dateStr = timestamp != null 
+            ? "${timestamp.toDate().day}/${timestamp.toDate().month}/${timestamp.toDate().year}"
+            : "Unknown date";
+
+        Color statusColor = status == 'Approved' ? Colors.green : (status == 'Rejected' ? Colors.red : Colors.orange);
+        IconData icon = vehicleType == 'Motorcycle' ? Icons.two_wheeler : Icons.directions_car;
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: statusColor.withOpacity(0.1),
+              child: Icon(icon, color: statusColor),
+            ),
+            title: Text(plate, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Applied: $dateStr'),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+            onTap: () {
+               // Navigate to pass list
+               Navigator.push(context, MaterialPageRoute(builder: (_) => const PassListPage()));
+            },
+          ),
+        );
+      },
+    );
   }
 }
 
-// ================= UPDATED DRAWER =================
 class _AppDrawer extends StatelessWidget {
   final String username;
   final String email;
-  final String? photoUrl; // 🔹 Add photoUrl
+  final String? photoUrl; 
 
   const _AppDrawer({
     required this.username,
@@ -234,7 +297,6 @@ class _AppDrawer extends StatelessWidget {
   });
 
   void _showLogoutDialog(BuildContext context) {
-    // ... (same as before) ...
      showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -256,12 +318,100 @@ class _AppDrawer extends StatelessWidget {
     );
   }
 
+  // 📞 CONTACT SUPPORT DIALOG
   void _showSupportDialog(BuildContext context) {
-     showDialog(context: context, builder: (_) => const AlertDialog(title: Text('Support'), content: Text('Contact support@vehiclepass.com')));
+     showDialog(
+       context: context, 
+       builder: (_) => AlertDialog(
+         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+         title: Row(
+           children: const [
+             Icon(Icons.support_agent, color: Colors.blue),
+             SizedBox(width: 10),
+             Text('Support'),
+           ],
+         ),
+         content: Column(
+           mainAxisSize: MainAxisSize.min,
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: const [
+             Text('Need help? Contact our admin team below:', style: TextStyle(color: Colors.grey)),
+             SizedBox(height: 20),
+             ListTile(
+               contentPadding: EdgeInsets.zero,
+               leading: Icon(Icons.email_outlined, color: Colors.orange),
+               title: Text('Email'),
+               subtitle: Text('support@vehiclepass.com'),
+             ),
+             Divider(),
+             ListTile(
+               contentPadding: EdgeInsets.zero,
+               leading: Icon(Icons.phone_outlined, color: Colors.green),
+               title: Text('Hotline'),
+               subtitle: Text('+60 3-8888 1234'),
+             ),
+             Divider(),
+             ListTile(
+               contentPadding: EdgeInsets.zero,
+               leading: Icon(Icons.access_time, color: Colors.blueGrey),
+               title: Text('Operating Hours'),
+               subtitle: Text('Mon - Fri, 9:00 AM - 5:00 PM'),
+             ),
+           ],
+         ),
+         actions: [
+           TextButton(
+             onPressed: () => Navigator.pop(context), 
+             child: const Text('Close')
+           ),
+         ],
+       )
+     );
   }
 
+  // 📜 TERMS & PRIVACY DIALOG
   void _showTermsDialog(BuildContext context) {
-     showDialog(context: context, builder: (_) => const AlertDialog(title: Text('Terms'), content: Text('Terms content...')));
+     showDialog(
+       context: context, 
+       builder: (_) => AlertDialog(
+         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+         title: const Text('Terms & Privacy'),
+         content: SizedBox(
+           width: double.maxFinite,
+           child: SingleChildScrollView(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: const [
+                 Text('Terms of Service', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                 SizedBox(height: 10),
+                 Text(
+                   '1. Use of Service\nBy using this application, you agree to provide accurate and up-to-date information regarding your vehicle and identity.\n\n'
+                   '2. Vehicle Pass\nThe vehicle pass generated is for the sole use of the registered vehicle and applicant. It is non-transferable.\n\n'
+                   '3. Compliance\nUsers must comply with all campus traffic rules and regulations. Failure to do so may result in pass revocation.',
+                   style: TextStyle(fontSize: 14, height: 1.4),
+                 ),
+                 SizedBox(height: 24),
+                 Divider(),
+                 SizedBox(height: 10),
+                 Text('Privacy Policy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                 SizedBox(height: 10),
+                 Text(
+                   '1. Data Collection\nWe collect personal information such as name, email, and vehicle details solely for the purpose of processing vehicle passes.\n\n'
+                   '2. Data Security\nYour data is stored securely and will not be shared with third parties without your consent, except as required by law.',
+                   style: TextStyle(fontSize: 14, height: 1.4),
+                 ),
+               ],
+             ),
+           ),
+         ),
+         actions: [
+           ElevatedButton(
+             onPressed: () => Navigator.pop(context), 
+             child: const Text('I Understand')
+           ),
+         ],
+       )
+     );
   }
 
   @override
@@ -272,7 +422,6 @@ class _AppDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // 🔹 UPDATED HEADER WITH IMAGE
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(color: Color(0xFFFF9800)),
             currentAccountPicture: CircleAvatar(

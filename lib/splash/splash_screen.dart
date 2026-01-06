@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -13,48 +14,69 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scale;
-  late Animation<double> _fade;
+    with TickerProviderStateMixin {
+  late AnimationController _logoController;
+  late AnimationController _bgController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
 
   final List<String> adminEmails = [
     'admin@vehiclepass.com',
   ];
 
+  // 💬 SPLASH QUOTES (DIFFERENT FROM LOGIN/SIGNUP)
+  final List<String> splashQuotes = [
+    "Smart access starts here.",
+    "Security meets simplicity.",
+    "Designed for a smarter campus.",
+    "Access with confidence.",
+  ];
+
+  late String randomQuote;
+
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
+    randomQuote =
+        splashQuotes[Random().nextInt(splashQuotes.length)];
+
+    // 🎯 LOGO ANIMATION
+    _logoController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1600),
     );
 
-    _scale = Tween<double>(begin: 0.6, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutBack,
+        parent: _logoController,
+        curve: Curves.elasticOut,
       ),
     );
 
-    _fade = Tween<double>(begin: 0, end: 1).animate(
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
-        parent: _controller,
+        parent: _logoController,
         curve: Curves.easeIn,
       ),
     );
 
-    _controller.forward();
-    _goNext();
+    // 🌊 BACKGROUND ANIMATION
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat(reverse: true);
+
+    _logoController.forward();
+    _handleNavigation();
   }
 
-  Future<void> _goNext() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    final user = FirebaseAuth.instance.currentUser;
+  Future<void> _handleNavigation() async {
+    await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       Navigator.pushReplacement(
@@ -83,80 +105,142 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _logoController.dispose();
+    _bgController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFFF9800),
-              Color(0xFFFFB74D),
-              Color(0xFFFFE0B2),
-            ],
-          ),
-        ),
-        child: Center(
-          child: FadeTransition(
-            opacity: _fade,
-            child: ScaleTransition(
-              scale: _scale,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 🚗 LOGO
-                  Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(26),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.directions_car_rounded,
-                      size: 60,
-                      color: Color(0xFFFF9800),
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  const Text(
-                    'VehiclePass',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  const Text(
-                    'Campus Vehicle Access System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
+      body: AnimatedBuilder(
+        animation: _bgController,
+        builder: (context, _) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.primary.withOpacity(0.95),
+                  scheme.primaryContainer.withOpacity(0.9),
+                ],
+                stops: [
+                  0.2 + (_bgController.value * 0.2),
+                  0.8,
                 ],
               ),
             ),
-          ),
-        ),
+            child: Stack(
+              children: [
+                // 🚗 CENTER CONTENT
+                Center(
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 🔵 LOGO
+                          Container(
+                            padding: const EdgeInsets.all(28),
+                            decoration: BoxDecoration(
+                              color: scheme.surface,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  blurRadius: 30,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.directions_car_rounded,
+                              size: 64,
+                              color: scheme.primary,
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // 🏷 APP NAME
+                          Text(
+                            'VehiclePass',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: scheme.onPrimary,
+                                  letterSpacing: 1.2,
+                                ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // 💬 QUOTE
+                          Text(
+                            '“$randomQuote”',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color:
+                                      scheme.onPrimary.withOpacity(0.9),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 🔄 LOADING
+                Positioned(
+                  bottom: 70,
+                  left: 0,
+                  right: 0,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        const SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'Preparing your experience...',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(
+                                color: scheme.onPrimary
+                                    .withOpacity(0.85),
+                                letterSpacing: 1,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
