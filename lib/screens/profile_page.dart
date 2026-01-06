@@ -1,9 +1,10 @@
-import 'dart:io'; // Import for File
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // Import Storage
-import 'package:image_picker/image_picker.dart'; // Import Image Picker
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 import '../main.dart';
 import 'change_password_page.dart';
@@ -20,8 +21,8 @@ class _ProfilePageState extends State<ProfilePage> {
   final usernameCtrl = TextEditingController();
   
   bool loading = true;
-  File? _imageFile; // Variable to hold the picked image locally
-  String? _currentPhotoUrl; // Variable to hold the URL from Firestore
+  File? _imageFile;
+  String? _currentPhotoUrl;
 
   @override
   void initState() {
@@ -29,7 +30,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadProfile();
   }
 
-  // 📥 Load Profile Data (Username + Photo URL)
+  // 📥 LOAD PROFILE DATA
   Future<void> _loadProfile() async {
     if (user == null) return;
 
@@ -43,7 +44,6 @@ class _ProfilePageState extends State<ProfilePage> {
         final data = doc.data() as Map<String, dynamic>;
         usernameCtrl.text = data['username'] ?? '';
         
-        // Load the photo URL if it exists
         if (data.containsKey('photoUrl')) {
           _currentPhotoUrl = data['photoUrl'];
         }
@@ -57,46 +57,76 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // 📸 Function to Pick Image from Gallery
+  // 📸 PICK & CROP IMAGE
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512, // Resize to save storage/bandwidth
-      maxHeight: 512,
-      imageQuality: 75,
-    );
+    try {
+      // 1️⃣ DEFINE primaryColor HERE (Fixes 'undefined name' error)
+      final primaryColor = Theme.of(context).primaryColor;
+      
+      // 2️⃣ DEFINE pickedFile HERE (Fixes 'undefined name' error)
+      final pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
 
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
+      if (pickedFile != null) {
+        // ✂️ Start Cropping
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: pickedFile.path, // Now pickedFile is defined
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+          compressQuality: 70,
+          maxWidth: 512,
+          maxHeight: 512,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Edit Profile Picture',
+              toolbarColor: primaryColor, // Now primaryColor is defined
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+              hideBottomControls: false,
+              showCropGrid: true, 
+            ),
+            IOSUiSettings(
+              title: 'Edit Profile Picture',
+            ),
+          ],
+        );
+
+        if (croppedFile != null) {
+          setState(() {
+            _imageFile = File(croppedFile.path);
+          });
+        }
+      }
+    } catch (e) {
+      _msg('Error picking image: $e');
     }
   }
 
-  // ☁️ Function to Upload Image to Firebase Storage
+  // ☁️ UPLOAD TO FIREBASE STORAGE
   Future<String?> _uploadImage() async {
     if (_imageFile == null || user == null) return null;
 
     try {
-      // 1. Create a reference to the file location in Firebase Storage
+      // Create path: user_profiles/USER_ID.jpg
       final storageRef = FirebaseStorage.instance
           .ref()
           .child('user_profiles')
           .child('${user!.uid}.jpg');
 
-      // 2. Upload the file
+      // Upload
       await storageRef.putFile(_imageFile!);
 
-      // 3. Get the Download URL
-      final downloadUrl = await storageRef.getDownloadURL();
-      return downloadUrl;
+      // Get URL
+      return await storageRef.getDownloadURL();
     } catch (e) {
       _msg('Failed to upload image: $e');
       return null;
     }
   }
 
-  // 💾 Save Profile (Username + Image)
+  // 💾 SAVE EVERYTHING (Firestore + Auth)
   Future<void> _saveProfile() async {
     if (user == null) return;
 
@@ -110,12 +140,12 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       String? newPhotoUrl = _currentPhotoUrl;
 
-      // If user picked a new image, upload it first
+      // If a new local image was picked, upload it first
       if (_imageFile != null) {
         newPhotoUrl = await _uploadImage();
       }
 
-      // Update Firestore
+      // Update Firestore Document
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user!.uid)
@@ -123,13 +153,13 @@ class _ProfilePageState extends State<ProfilePage> {
         {
           'username': usernameCtrl.text.trim(),
           'email': user!.email,
-          'photoUrl': newPhotoUrl, // Save the URL
+          'photoUrl': newPhotoUrl,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
 
-      // Optional: Update FirebaseAuth profile as well (best practice)
+      // Update Firebase Auth Profile (Optional but recommended)
       if (newPhotoUrl != null) {
         await user!.updatePhotoURL(newPhotoUrl);
       }
@@ -139,8 +169,9 @@ class _ProfilePageState extends State<ProfilePage> {
       // Refresh local state
       setState(() {
         _currentPhotoUrl = newPhotoUrl;
-        _imageFile = null; // Clear local selection after upload
+        _imageFile = null; // Clear local file to show the cloud URL now
       });
+
     } catch (e) {
       _msg('Error saving profile: $e');
     } finally {
@@ -161,12 +192,12 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    // Determine which image to show
+    // Determine which image to display
     ImageProvider? backgroundImage;
     if (_imageFile != null) {
-      backgroundImage = FileImage(_imageFile!); // Show local picked image
+      backgroundImage = FileImage(_imageFile!); // Local picked image
     } else if (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty) {
-      backgroundImage = NetworkImage(_currentPhotoUrl!); // Show cloud image
+      backgroundImage = NetworkImage(_currentPhotoUrl!); // Cloud image
     }
 
     return Scaffold(
@@ -174,41 +205,46 @@ class _ProfilePageState extends State<ProfilePage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // 👤 HEADER WITH IMAGE PICKER
+          // 👤 AVATAR SECTION
           Center(
             child: Stack(
               children: [
                 CircleAvatar(
-                  radius: 50,
-                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.15),
+                  radius: 60,
+                  backgroundColor:
+                      Theme.of(context).primaryColor.withOpacity(0.15),
                   backgroundImage: backgroundImage,
                   child: backgroundImage == null
-                      ? const Icon(
+                      ? Icon(
                           Icons.person,
-                          size: 50,
-                          color: Color(0xFFFF9800),
+                          size: 60,
+                          color: Theme.of(context).primaryColor,
                         )
                       : null,
                 ),
-                // Camera Icon Button
+                // Camera Button
                 Positioned(
                   bottom: 0,
-                  right: 0,
+                  right: 4,
                   child: GestureDetector(
                     onTap: _pickImage,
                     child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
                         shape: BoxShape.circle,
-                        boxShadow: [
+                        boxShadow: const [
                           BoxShadow(
                             color: Colors.black26,
                             blurRadius: 4,
                           )
                         ],
                       ),
-                      child: const Icon(Icons.camera_alt, size: 20, color: Colors.blue),
+                      child: Icon(
+                        Icons.camera_alt, 
+                        size: 22, 
+                        color: Theme.of(context).primaryColor,
+                      ),
                     ),
                   ),
                 ),
@@ -227,7 +263,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 30),
 
-          // 📝 USERNAME FIELD
+          // 📝 USERNAME
           const Text(
             'Username',
             style: TextStyle(fontWeight: FontWeight.bold),
@@ -238,7 +274,6 @@ class _ProfilePageState extends State<ProfilePage> {
             decoration: const InputDecoration(
               hintText: 'Enter username',
               border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
           ),
           const SizedBox(height: 20),
@@ -246,7 +281,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // 💾 SAVE BUTTON
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 50,
             child: ElevatedButton(
               onPressed: _saveProfile,
               child: const Text('Save Changes'),
@@ -256,11 +291,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 30),
           const Divider(),
 
-          // 🔒 SECURITY SECTION
-          const Text(
-            'Security',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          // 🔒 SECURITY
           ListTile(
             leading: const Icon(Icons.lock_outline),
             title: const Text('Change Password'),
@@ -277,10 +308,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const Divider(),
 
-          // 🎨 THEME SECTION
-          const Text(
-            'Appearance',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          // 🎨 THEME SETTINGS
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'Appearance',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
           RadioListTile<ThemeMode>(
             title: const Text('System Default'),
