@@ -143,6 +143,14 @@ class _ApplicationCard extends StatelessWidget {
     }
   }
 
+  // 🔹 Helper to get the correct icon
+  IconData get vehicleIcon {
+    if (vehicleType == 'Motorcycle') {
+      return Icons.two_wheeler;
+    }
+    return Icons.directions_car;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -157,8 +165,8 @@ class _ApplicationCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.directions_car,
-                    color: Colors.orange),
+                // 🔹 Use the dynamic vehicleIcon here
+                Icon(vehicleIcon, color: Colors.orange),
                 const SizedBox(width: 8),
                 Text(
                   vehicleNo,

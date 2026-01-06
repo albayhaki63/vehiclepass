@@ -19,11 +19,20 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 🌗 Check if currently in Dark Mode
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Define card color dynamically
+    final cardColor = isDark ? const Color(0xFF1E3A45) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9), // Light grey background
+      // Remove hardcoded background to let main.dart theme take over
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, 
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         title: Row(
           children: [
             Container(
@@ -35,10 +44,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
               child: const Icon(Icons.admin_panel_settings, color: Colors.orange),
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Admin Dashboard',
               style: TextStyle(
-                color: Colors.black87,
+                color: textColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
@@ -63,19 +72,19 @@ class _AdminHomePageState extends State<AdminHomePage> {
           ),
 
           // 🔍 2. SEARCH BAR
-          _buildSearchBar(),
+          _buildSearchBar(cardColor, isDark),
 
           // 🏷️ 3. FILTERS
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-            child: _buildFilterChips(),
+            child: _buildFilterChips(cardColor, isDark),
           ),
 
           const SizedBox(height: 10),
 
           // 📋 4. APPLICATION LIST
-          Expanded(child: _buildApplications()),
+          Expanded(child: _buildApplications(cardColor, textColor, isDark)),
         ],
       ),
     );
@@ -129,18 +138,19 @@ class _AdminHomePageState extends State<AdminHomePage> {
   }
 
   // ================= SEARCH BAR =================
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(Color cardColor, bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+          if (!isDark) // Only show shadow in light mode for depth
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
         ],
       ),
       child: TextField(
@@ -150,13 +160,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
             searchQuery = val.toLowerCase();
           });
         },
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
         decoration: InputDecoration(
           hintText: 'Search plate number or email...',
-          hintStyle: TextStyle(color: Colors.grey[400]),
-          prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+          hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[400]),
+          prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.grey[400]),
           suffixIcon: searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear),
+                  icon: Icon(Icons.clear, color: isDark ? Colors.white54 : Colors.grey),
                   onPressed: () {
                     searchCtrl.clear();
                     setState(() => searchQuery = '');
@@ -171,12 +182,21 @@ class _AdminHomePageState extends State<AdminHomePage> {
   }
 
   // ================= FILTER CHIPS =================
-  Widget _buildFilterChips() {
+  Widget _buildFilterChips(Color cardColor, bool isDark) {
     final filters = ['All', 'Pending', 'Approved', 'Rejected'];
 
     return Row(
       children: filters.map((f) {
         final isSelected = filter == f;
+        
+        // Dynamic colors for chips
+        final bgColor = isSelected 
+            ? (isDark ? Colors.orange : Colors.black87) 
+            : cardColor;
+        final txtColor = isSelected 
+            ? Colors.white 
+            : (isDark ? Colors.white70 : Colors.grey[700]);
+
         return Padding(
           padding: const EdgeInsets.only(right: 12),
           child: GestureDetector(
@@ -185,16 +205,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.black87 : Colors.white,
+                color: bgColor,
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
-                  if (isSelected)
+                  if (isSelected && !isDark)
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     )
-                  else
+                  else if (!isDark)
                     BoxShadow(
                       color: Colors.grey.withOpacity(0.1),
                       blurRadius: 4,
@@ -205,7 +225,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
               child: Text(
                 f,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey[700],
+                  color: txtColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -218,7 +238,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
   }
 
   // ================= APPLICATION LIST =================
-  Widget _buildApplications() {
+  Widget _buildApplications(Color cardColor, Color textColor, bool isDark) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('vehicle_passes')
@@ -230,7 +250,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         }
 
         if (!snapshot.hasData) {
-          return const Center(child: Text('No data found'));
+          return Center(child: Text('No data found', style: TextStyle(color: textColor)));
         }
 
         // ⚡ Client-side Filtering & Searching
@@ -283,7 +303,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
               date: data['createdAt'],
               status: data['status'] ?? 'Pending',
               purpose: data['purpose'],
-              // Pass context to show dialogs
+              // Theme colors
+              cardColor: cardColor,
+              textColor: textColor,
+              isDark: isDark,
               onApprove: () => _approvePass(docs[i].id),
               onReject: () => _rejectPassWithReason(context, docs[i].id),
             );
@@ -446,7 +469,7 @@ class _StatCard extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 13, // Slightly smaller to prevent overflow
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: Colors.white.withOpacity(0.9),
                     ),
@@ -472,6 +495,9 @@ class _ApplicationCard extends StatelessWidget {
   final String? purpose;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+  final Color cardColor;
+  final Color textColor;
+  final bool isDark;
 
   const _ApplicationCard({
     required this.id,
@@ -483,6 +509,9 @@ class _ApplicationCard extends StatelessWidget {
     this.purpose,
     required this.onApprove,
     required this.onReject,
+    required this.cardColor,
+    required this.textColor,
+    required this.isDark,
   });
 
   @override
@@ -494,14 +523,15 @@ class _ApplicationCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.08),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
         ],
       ),
       child: Column(
@@ -517,14 +547,14 @@ class _ApplicationCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: isDark ? Colors.white10 : Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         vehicleType == 'Motorcycle'
                             ? Icons.two_wheeler
                             : Icons.directions_car,
-                        color: Colors.black87,
+                        color: textColor,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -533,15 +563,19 @@ class _ApplicationCard extends StatelessWidget {
                       children: [
                         Text(
                           vehicleNo,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
+                            color: textColor,
                           ),
                         ),
                         Text(
                           vehicleType,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: TextStyle(
+                            fontSize: 12, 
+                            color: isDark ? Colors.white54 : Colors.grey[600]
+                          ),
                         ),
                       ],
                     ),
@@ -552,7 +586,7 @@ class _ApplicationCard extends StatelessWidget {
             ),
           ),
 
-          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+          Divider(height: 1, color: isDark ? Colors.white12 : const Color(0xFFF0F0F0)),
 
           // BODY DETAILS
           Padding(
@@ -573,7 +607,7 @@ class _ApplicationCard extends StatelessWidget {
 
           // ACTIONS (Only if Pending)
           if (isPending) ...[
-            const Divider(height: 1, color: Color(0xFFF0F0F0)),
+            Divider(height: 1, color: isDark ? Colors.white12 : const Color(0xFFF0F0F0)),
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -581,7 +615,7 @@ class _ApplicationCard extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE8F5E9),
+                        backgroundColor: isDark ? Colors.green.withOpacity(0.2) : const Color(0xFFE8F5E9),
                         foregroundColor: Colors.green,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -598,7 +632,7 @@ class _ApplicationCard extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFEBEE),
+                        backgroundColor: isDark ? Colors.red.withOpacity(0.2) : const Color(0xFFFFEBEE),
                         foregroundColor: Colors.red,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -624,17 +658,20 @@ class _ApplicationCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: Colors.grey[400]),
+        Icon(icon, size: 16, color: isDark ? Colors.white54 : Colors.grey[400]),
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: TextStyle(color: Colors.grey[500], fontSize: 13),
+          style: TextStyle(
+            color: isDark ? Colors.white54 : Colors.grey[500], 
+            fontSize: 13
+          ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              color: Colors.black87,
+            style: TextStyle(
+              color: textColor,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

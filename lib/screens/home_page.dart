@@ -3,11 +3,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../auth/login_page.dart';
+// import '../admin/admin_home_page.dart'; // Uncomment if you have this file
 import 'apply_pass_page.dart';
 import 'pass_list_page.dart';
 import 'profile_page.dart';
 import 'notifications_page.dart';
 import 'guidelines_page.dart';
+
+// 🔑 LIST OF ADMIN EMAILS
+const List<String> adminEmails = [
+  'admin@vehiclepass.com',
+];
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -49,7 +55,7 @@ class _HomePageState extends State<HomePage> {
           body: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              // 窓 WELCOME
+              // 👋 WELCOME CARD
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
@@ -88,7 +94,7 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 24),
 
-              // ｪｪ MY VEHICLES (Dropdown + Details)
+              // 🚗 MY VEHICLES (Dropdown + Details)
               const Text(
                 'My Vehicles',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -127,7 +133,7 @@ class _HomePageState extends State<HomePage> {
 
                   return Column(
                     children: [
-                      // 1. Dropdown List (Dark Mode Fixed)
+                      // 1. Dropdown List
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
@@ -178,17 +184,17 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 16),
 
-              // 竢ｰ EXPIRY REMINDER
+              // ⚠️ EXPIRY REMINDER
               _ExpiryReminder(userId: user.uid),
 
               const SizedBox(height: 24),
 
-              // 庁 TIPS
+              // 💡 TIPS
               const _TipsCard(),
 
               const SizedBox(height: 30),
 
-              // 葡 RECENT APPLICATION
+              // 🕒 RECENT APPLICATION
               const Text(
                 'Recent Application',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -211,6 +217,12 @@ class _HomePageState extends State<HomePage> {
 
     final status = data['status'] ?? 'Pending';
     final plate = data['plateNumber'] ?? data['vehicleNo'] ?? 'Unknown Plate';
+    final vehicleType = data['vehicleType'] ?? 'Car';
+
+    // 🔹 Icon Logic
+    IconData vehicleIcon = vehicleType == 'Motorcycle' 
+        ? Icons.two_wheeler 
+        : Icons.directions_car;
 
     Color statusColor;
     if (status == 'Approved') {
@@ -224,7 +236,7 @@ class _HomePageState extends State<HomePage> {
     return Card(
       child: ListTile(
         leading: Icon(
-          Icons.directions_car,
+          vehicleIcon,
           color: statusColor,
           size: 32,
         ),
@@ -350,10 +362,15 @@ class _RecentApplication extends StatelessWidget {
         }
 
         final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+        final vehicleType = data['vehicleType'] ?? 'Car';
+
+        IconData vehicleIcon = vehicleType == 'Motorcycle' 
+            ? Icons.two_wheeler 
+            : Icons.directions_car;
 
         return Card(
           child: ListTile(
-            leading: const Icon(Icons.directions_car),
+            leading: Icon(vehicleIcon),
             title: Text(data['plateNumber'] ?? data['vehicleNo'] ?? '-'),
             subtitle: Text('Status: ${data['status']}'),
             trailing: const Icon(Icons.chevron_right),
@@ -382,7 +399,6 @@ class _AppDrawer extends StatelessWidget {
     required this.email,
   });
 
-  // 🔹 Helper function to show Logout Confirmation Dialog
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -403,19 +419,12 @@ class _AppDrawer extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              // 1. Close the dialog
               Navigator.pop(ctx); 
-              
-              // 2. Perform sign out
               await FirebaseAuth.instance.signOut();
-              
-              // 3. Navigate to Login Page (removes Drawer, Dialog, and Home)
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => LoginPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => LoginPage()),
                   (_) => false,
                 );
               }
@@ -427,8 +436,110 @@ class _AppDrawer extends StatelessWidget {
     );
   }
 
+  // 📞 FUNCTION: Show Support Dialog
+  void _showSupportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.support_agent, color: Colors.blue),
+            SizedBox(width: 10),
+            Text('Contact Support'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Need help with your application?'),
+            const SizedBox(height: 16),
+            _buildContactRow(Icons.email, 'support@vehiclepass.com'),
+            const SizedBox(height: 12),
+            _buildContactRow(Icons.phone, '+60 12-345 6789'),
+            const SizedBox(height: 12),
+            _buildContactRow(Icons.access_time, 'Mon-Fri, 9AM - 5PM'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 📜 FUNCTION: Show Terms & Privacy Dialog
+  void _showTermsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Terms & Privacy'),
+        content: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '1. Terms of Service',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'By using the VehiclePass application, you agree to comply with all campus regulations regarding vehicle access and parking. You are responsible for ensuring that your vehicle details are accurate and that your pass is used only for the registered vehicle.',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '2. Privacy Policy',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'We value your privacy. The data collected (including your vehicle plate number, email, and student ID) is used solely for the purpose of managing vehicle access and campus security. We do not share your personal information with third parties without your consent, except as required by law.',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '3. Data Retention',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your application data will be retained for the duration of your active pass and for record-keeping purposes as mandated by the university administration.',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('I Understand'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        const SizedBox(width: 12),
+        Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isAdmin = adminEmails.contains(email.toLowerCase());
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -450,7 +561,9 @@ class _AppDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.home),
             title: const Text('Home'),
-            onTap: () => Navigator.pop(context),
+            onTap: () { 
+              // Do nothing (stay on drawer) or close explicitly if desired
+            },
           ),
 
           // 🚗 Apply Vehicle Pass
@@ -458,12 +571,9 @@ class _AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.directions_car),
             title: const Text('Apply Vehicle Pass'),
             onTap: () {
-              Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const ApplyPassPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const ApplyPassPage()),
               );
             },
           ),
@@ -473,12 +583,9 @@ class _AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.receipt_long),
             title: const Text('My Applications'),
             onTap: () {
-              Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const PassListPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const PassListPage()),
               );
             },
           ),
@@ -490,44 +597,60 @@ class _AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.notifications),
             title: const Text('Notifications'),
             onTap: () {
-              Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const NotificationsPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const NotificationsPage()),
               );
             },
           ),
 
-          // 📘 Guidelines / FAQ
+          // 📘 Guidelines
           ListTile(
             leading: const Icon(Icons.menu_book),
             title: const Text('Guidelines / FAQ'),
             onTap: () {
-              Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const GuidelinesPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const GuidelinesPage()),
               );
             },
           ),
 
+          // 📞 Contact Support
+          ListTile(
+            leading: const Icon(Icons.support_agent),
+            title: const Text('Contact Support'),
+            onTap: () => _showSupportDialog(context),
+          ),
+
+          // 🛡️ Terms & Privacy (Updated to be Functional)
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Terms & Privacy'),
+            onTap: () => _showTermsDialog(context),
+          ),
+
           const Divider(),
+
+          // 🔐 Admin Dashboard (Only visible to Admins)
+          if (isAdmin) 
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings, color: Colors.purple),
+              title: const Text('Admin Dashboard', style: TextStyle(color: Colors.purple, fontWeight: FontWeight.bold)),
+              onTap: () {
+                // Uncomment below if you have AdminHomePage imported
+                // Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHomePage()));
+              },
+            ),
 
           // 👤 Profile
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),
             onTap: () {
-              Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const ProfilePage(),
-                ),
+                MaterialPageRoute(builder: (_) => const ProfilePage()),
               );
             },
           ),
@@ -540,10 +663,18 @@ class _AppDrawer extends StatelessWidget {
               style: TextStyle(color: Colors.red),
             ),
             onTap: () {
-              // ⚠️ FIX: Removed Navigator.pop(context) from here.
-              // We keep the drawer open so 'context' stays valid for the Dialog.
               _showLogoutDialog(context); 
             },
+          ),
+          
+          // Version Info
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Version 1.0.0',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ),
         ],
       ),
