@@ -20,11 +20,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
-  final List<String> adminEmails = [
-    'admin@vehiclepass.com',
-  ];
+  final List<String> adminEmails = ['admin@vehiclepass.com'];
 
-  // 💬 SPLASH QUOTES (DIFFERENT FROM LOGIN/SIGNUP)
   final List<String> splashQuotes = [
     "Smart access starts here.",
     "Security meets simplicity.",
@@ -41,16 +38,15 @@ class _SplashScreenState extends State<SplashScreen>
     randomQuote =
         splashQuotes[Random().nextInt(splashQuotes.length)];
 
-    // 🎯 LOGO ANIMATION
     _logoController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1200),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(
         parent: _logoController,
-        curve: Curves.elasticOut,
+        curve: Curves.easeOutBack,
       ),
     );
 
@@ -61,10 +57,9 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // 🌊 BACKGROUND ANIMATION
     _bgController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
 
     _logoController.forward();
@@ -73,7 +68,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _handleNavigation() async {
     await Future.delayed(const Duration(seconds: 3));
-
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
@@ -85,21 +79,14 @@ class _SplashScreenState extends State<SplashScreen>
       );
     } else {
       final email = user.email!.toLowerCase();
-      if (adminEmails.contains(email)) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const AdminHomePage(),
-          ),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const HomePage(),
-          ),
-        );
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => adminEmails.contains(email)
+              ? const AdminHomePage()
+              : const HomePage(),
+        ),
+      );
     }
   }
 
@@ -121,21 +108,20 @@ class _SplashScreenState extends State<SplashScreen>
           return Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  scheme.primary.withOpacity(0.95),
-                  scheme.primaryContainer.withOpacity(0.9),
+                  scheme.primaryContainer.withOpacity(0.6),
+                  scheme.surface,
                 ],
                 stops: [
-                  0.2 + (_bgController.value * 0.2),
-                  0.8,
+                  0.3 + (_bgController.value * 0.05),
+                  1.0,
                 ],
               ),
             ),
             child: Stack(
               children: [
-                // 🚗 CENTER CONTENT
                 Center(
                   child: FadeTransition(
                     opacity: _fadeAnimation,
@@ -144,30 +130,30 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 🔵 LOGO
+                          // 🌟 LOGO
                           Container(
-                            padding: const EdgeInsets.all(28),
+                            padding: const EdgeInsets.all(26),
                             decoration: BoxDecoration(
-                              color: scheme.surface,
+                              color: Colors.white,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
-                                  blurRadius: 30,
+                                  color: scheme.primary.withOpacity(0.25),
+                                  blurRadius: 25,
                                   offset: const Offset(0, 12),
                                 ),
                               ],
                             ),
                             child: Icon(
                               Icons.directions_car_rounded,
-                              size: 64,
+                              size: 60,
                               color: scheme.primary,
                             ),
                           ),
 
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 26),
 
-                          // 🏷 APP NAME
+                          // 🏷 NAME
                           Text(
                             'VehiclePass',
                             style: Theme.of(context)
@@ -175,8 +161,8 @@ class _SplashScreenState extends State<SplashScreen>
                                 .headlineLarge
                                 ?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  color: scheme.onPrimary,
                                   letterSpacing: 1.2,
+                                  color: scheme.primary,
                                 ),
                           ),
 
@@ -191,8 +177,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 .bodyMedium
                                 ?.copyWith(
                                   fontStyle: FontStyle.italic,
-                                  color:
-                                      scheme.onPrimary.withOpacity(0.9),
+                                  color: scheme.onSurfaceVariant,
                                 ),
                           ),
                         ],
@@ -201,7 +186,6 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
-                // 🔄 LOADING
                 Positioned(
                   bottom: 70,
                   left: 0,
@@ -215,22 +199,17 @@ class _SplashScreenState extends State<SplashScreen>
                           height: 26,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 14),
                         Text(
                           'Preparing your experience...',
                           style: Theme.of(context)
                               .textTheme
                               .labelMedium
                               ?.copyWith(
-                                color: scheme.onPrimary
-                                    .withOpacity(0.85),
-                                letterSpacing: 1,
+                                color: scheme.onSurfaceVariant,
+                                letterSpacing: 0.8,
                               ),
                         ),
                       ],

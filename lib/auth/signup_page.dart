@@ -16,7 +16,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
   bool obscurePassword = true;
 
-  // 💬 QUOTES
   final List<String> quotes = [
     "Create today. Secure tomorrow.",
     "Every great journey starts here.",
@@ -32,10 +31,18 @@ class _SignUpPageState extends State<SignUpPage> {
     randomQuote = quotes[Random().nextInt(quotes.length)];
   }
 
+  void _showMsg(String msg, {Color? color}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(),
@@ -45,21 +52,19 @@ class _SignUpPageState extends State<SignUpPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 10),
-
               Text(
                 'Sign Up for Free',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 8),
 
-              // 💬 QUOTE
               Text(
                 '“$randomQuote”',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: TextStyle(
                   fontStyle: FontStyle.italic,
                   color: scheme.primary,
                 ),
@@ -85,12 +90,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
               const SizedBox(height: 16),
 
-              // 🔐 PASSWORD + 👁 TOGGLE
+              // 🔐 PASSWORD
               TextField(
                 controller: passCtrl,
                 obscureText: obscurePassword,
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Password (min 6 characters)',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -115,7 +120,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
               const SizedBox(height: 28),
 
-              // 🔘 SIGN UP BUTTON
+              // 🔘 SIGN UP
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -129,66 +134,67 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                   child: const Text(
                     'Create Account',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   onPressed: () async {
-                    // 🔎 BASIC VALIDATION
-                    if (emailCtrl.text.isEmpty ||
-                        passCtrl.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Please fill all fields'),
-                          backgroundColor: scheme.error,
-                        ),
+                    final email = emailCtrl.text.trim();
+                    final password = passCtrl.text.trim();
+
+                    // ❌ EMPTY
+                    if (email.isEmpty || password.isEmpty) {
+                      _showMsg(
+                        'Please fill all fields',
+                        color: scheme.error,
+                      );
+                      return;
+                    }
+
+                    // ❌ PASSWORD < 6
+                    if (password.length < 6) {
+                      _showMsg(
+                        'Password must be at least 6 characters',
+                        color: scheme.error,
                       );
                       return;
                     }
 
                     try {
-                      // 🔐 CREATE ACCOUNT
                       final cred = await FirebaseAuth.instance
                           .createUserWithEmailAndPassword(
-                        email: emailCtrl.text.trim(),
-                        password: passCtrl.text.trim(),
+                        email: email,
+                        password: password,
                       );
 
-                      // 💾 SAVE USER TO FIRESTORE
                       await FirebaseFirestore.instance
                           .collection('users')
                           .doc(cred.user!.uid)
                           .set({
-                        'email': emailCtrl.text.trim(),
-                        'username':
-                            emailCtrl.text.split('@')[0],
+                        'email': email,
+                        'username': email.split('@')[0],
                         'createdAt': Timestamp.now(),
                       });
 
-                      Navigator.pop(context);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Account created successfully'),
-                        ),
-                      );
+                      if (mounted) {
+                        Navigator.pop(context);
+                        _showMsg(
+                          'Account created successfully',
+                          color: Colors.green,
+                        );
+                      }
                     } on FirebaseAuthException catch (e) {
                       String msg = 'Registration failed';
 
                       if (e.code == 'email-already-in-use') {
                         msg = 'Email already registered';
+                      } else if (e.code == 'invalid-email') {
+                        msg = 'Invalid email format';
                       } else if (e.code == 'weak-password') {
                         msg =
                             'Password must be at least 6 characters';
-                      } else if (e.code == 'invalid-email') {
-                        msg = 'Invalid email format';
                       }
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(msg)),
-                      );
+                      _showMsg(msg, color: scheme.error);
                     }
                   },
                 ),

@@ -25,21 +25,23 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   void _checkStrength(String password) {
     int score = 0;
 
-    if (password.length >= 8) score++;
+    if (password.length >= 6) score++;
     if (RegExp(r'[A-Z]').hasMatch(password)) score++;
     if (RegExp(r'[0-9]').hasMatch(password)) score++;
     if (RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(password)) score++;
 
-    if (score <= 1) {
-      _strengthText = 'Weak';
-      _strengthColor = Colors.red;
-    } else if (score == 2) {
-      _strengthText = 'Medium';
-      _strengthColor = Colors.orange;
-    } else {
-      _strengthText = 'Strong';
-      _strengthColor = Colors.green;
-    }
+    setState(() {
+      if (score <= 1) {
+        _strengthText = 'Weak';
+        _strengthColor = Colors.red;
+      } else if (score == 2) {
+        _strengthText = 'Medium';
+        _strengthColor = Colors.orange;
+      } else {
+        _strengthText = 'Strong';
+        _strengthColor = Colors.green;
+      }
+    });
   }
 
   // ================= CHANGE PASSWORD =================
@@ -51,8 +53,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       return;
     }
 
-    if (_newCtrl.text.length < 8) {
-      _showSnack('Password must be at least 8 characters');
+    if (_currentCtrl.text.isEmpty ||
+        _newCtrl.text.isEmpty ||
+        _confirmCtrl.text.isEmpty) {
+      _showSnack('Please fill all fields');
+      return;
+    }
+
+    // ✅ MIN 6 CHAR
+    if (_newCtrl.text.length < 6) {
+      _showSnack('Password must be at least 6 characters');
       return;
     }
 
@@ -64,7 +74,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     setState(() => _loading = true);
 
     try {
-      // 🔐 RE-AUTHENTICATION
+      // 🔐 RE-AUTHENTICATE
       final credential = EmailAuthProvider.credential(
         email: user.email!,
         password: _currentCtrl.text.trim(),
@@ -75,12 +85,22 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       // 🔄 UPDATE PASSWORD
       await user.updatePassword(_newCtrl.text.trim());
 
-      if (mounted) {
-        _showSnack('Password updated successfully');
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+
+      _showSnack('Password updated successfully');
+      Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
-      _showSnack(e.message ?? 'Failed to update password');
+      String msg = 'Failed to update password';
+
+      if (e.code == 'wrong-password') {
+        msg = 'Current password is incorrect';
+      } else if (e.code == 'requires-recent-login') {
+        msg = 'Please login again to change password';
+      } else if (e.code == 'weak-password') {
+        msg = 'Password must be at least 6 characters';
+      }
+
+      _showSnack(msg);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -90,6 +110,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg)),
     );
+  }
+
+  @override
+  void dispose() {
+    _currentCtrl.dispose();
+    _newCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -117,15 +145,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               controller: _newCtrl,
               label: 'New Password',
               visible: _showNew,
-              onChanged: (v) =>
-                  setState(() => _checkStrength(v)),
-              toggle: () =>
-                  setState(() => _showNew = !_showNew),
+              onChanged: _checkStrength,
+              toggle: () => setState(() => _showNew = !_showNew),
             ),
 
             const SizedBox(height: 6),
 
-            // 🔐 STRENGTH INDICATOR
+            // 🔐 STRENGTH
             Row(
               children: [
                 const Text('Strength: '),
@@ -154,14 +180,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '• Minimum 8 characters\n• Include uppercase, number or symbol',
+                '• Minimum 6 characters\n• Include uppercase, number or symbol',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
 
             const Spacer(),
 
-            // SAVE BUTTON
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -183,12 +208,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
             const SizedBox(height: 12),
 
-            // CANCEL (TENGAH)
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
           ],
         ),
@@ -211,9 +233,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       decoration: InputDecoration(
         labelText: label,
         suffixIcon: IconButton(
-          icon: Icon(
-            visible ? Icons.visibility_off : Icons.visibility,
-          ),
+          icon:
+              Icon(visible ? Icons.visibility_off : Icons.visibility),
           onPressed: toggle,
         ),
         border: OutlineInputBorder(
