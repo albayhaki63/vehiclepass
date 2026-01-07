@@ -5,6 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 class PassListPage extends StatelessWidget {
   const PassListPage({super.key});
 
+  // Helper to format timestamps into readable dates
+  String _formatDate(Timestamp? timestamp) {
+    if (timestamp == null) return 'N/A';
+    final date = timestamp.toDate();
+    return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -45,13 +52,11 @@ class PassListPage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
-                  Icon(Icons.folder_open,
-                      size: 60, color: Colors.grey),
+                  Icon(Icons.folder_open, size: 60, color: Colors.grey),
                   SizedBox(height: 12),
                   Text(
                     'No applications yet',
-                    style: TextStyle(
-                        fontSize: 16, color: Colors.grey),
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                 ],
               ),
@@ -66,8 +71,13 @@ class PassListPage extends StatelessWidget {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
 
-              // 🔹 FIX: Retrieve 'plateNumber' preferentially, fallback to 'vehicleNo'
+              // Retrieve Fields
               String displayPlate = data['plateNumber'] ?? data['vehicleNo'] ?? '-';
+              
+              // 1. Calculate Period Time string
+              final Timestamp? startTs = data['startDate'];
+              final Timestamp? expiryTs = data['expiryDate'];
+              String periodTime = "${_formatDate(startTs)} - ${_formatDate(expiryTs)}";
 
               return _ApplicationCard(
                 vehicleNo: displayPlate,
@@ -75,15 +85,14 @@ class PassListPage extends StatelessWidget {
                 duration: data['duration'] ?? '-',
                 status: data['status'] ?? 'Pending',
                 date: data['createdAt'],
-                onCancel: data['status'] == 'Pending'
-                    ? () async {
-                        final confirm =
-                            await _confirmCancel(context);
-                        if (confirm) {
-                          await doc.reference.delete();
-                        }
-                      }
-                    : null,
+                period: periodTime, // Pass the period string
+                onDelete: () async {
+                  // 2. Logic to delete the document
+                  final confirm = await _confirmDelete(context, data['status'] == 'Pending');
+                  if (confirm) {
+                    await doc.reference.delete();
+                  }
+                },
               );
             },
           );
@@ -92,21 +101,23 @@ class PassListPage extends StatelessWidget {
     );
   }
 
-  Future<bool> _confirmCancel(BuildContext context) async {
+  Future<bool> _confirmDelete(BuildContext context, bool isPending) async {
     return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Cancel Application'),
-            content: const Text(
-                'Are you sure you want to cancel this application?'),
+            title: Text(isPending ? 'Cancel Application' : 'Delete Vehicle'),
+            content: Text(isPending 
+              ? 'Are you sure you want to cancel this application?' 
+              : 'Are you sure you want to delete this vehicle record? This action cannot be undone.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('No'),
               ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Yes'),
+                child: const Text('Yes', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -121,7 +132,8 @@ class _ApplicationCard extends StatelessWidget {
   final String duration;
   final String status;
   final Timestamp date;
-  final VoidCallback? onCancel;
+  final String period; // New field for Period Time
+  final VoidCallback onDelete; // Changed from onCancel to onDelete to handle all states
 
   const _ApplicationCard({
     required this.vehicleNo,
@@ -129,7 +141,8 @@ class _ApplicationCard extends StatelessWidget {
     required this.duration,
     required this.status,
     required this.date,
-    this.onCancel,
+    required this.period,
+    required this.onDelete,
   });
 
   Color get statusColor {
@@ -143,7 +156,6 @@ class _ApplicationCard extends StatelessWidget {
     }
   }
 
-  // 🔹 Helper to get the correct icon
   IconData get vehicleIcon {
     if (vehicleType == 'Motorcycle') {
       return Icons.two_wheeler;
@@ -153,11 +165,15 @@ class _ApplicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine button label based on status
+    final isPending = status == 'Pending';
+    final buttonLabel = isPending ? 'Cancel Application' : 'Delete Vehicle';
+    final buttonIcon = isPending ? Icons.cancel : Icons.delete_outline;
+
     return Card(
       elevation: 3,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -165,14 +181,11 @@ class _ApplicationCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                // 🔹 Use the dynamic vehicleIcon here
                 Icon(vehicleIcon, color: Colors.orange),
                 const SizedBox(width: 8),
                 Text(
                   vehicleNo,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 Chip(
@@ -185,29 +198,42 @@ class _ApplicationCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text('Type: $vehicleType'),
-            Text('Duration: $duration'),
-            Text(
-              'Applied: ${date.toDate().toString().split(' ')[0]}',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            if (onCancel != null) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon:
-                      const Icon(Icons.cancel, color: Colors.red),
-                  label: const Text(
-                    'Cancel Application',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onPressed: onCancel,
+            _buildInfoRow(Icons.category_outlined, 'Type: $vehicleType'),
+            _buildInfoRow(Icons.timelapse, 'Duration: $duration'),
+            // 3. Display the Period Time
+            _buildInfoRow(Icons.date_range, 'Period: $period'),
+            _buildInfoRow(Icons.history, 'Applied: ${date.toDate().toString().split(' ')[0]}'),
+            
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: Icon(buttonIcon, color: Colors.red),
+                label: Text(
+                  buttonLabel,
+                  style: const TextStyle(color: Colors.red),
                 ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                ),
+                onPressed: onDelete,
               ),
-            ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          const SizedBox(width: 8),
+          Text(text, style: const TextStyle(color: Colors.black87)),
+        ],
       ),
     );
   }
